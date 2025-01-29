@@ -6,6 +6,8 @@ Nome: Marcos Matsunaga
 
 questões feitas: 
 
+und1
+
 cap 2 <<Exercício 2.2>> <<Exercício 2.3>> 
 
 cap5 <<Exercício 5.2>>
@@ -18,6 +20,11 @@ cap12 <<Exercício 12.2>> <<Exercício 12.3>>
 
 cap14 <<Exercício 14.2>>
 
+und3
+
+cap21 <<Exercício 21.2>>
+
+cap24 <<Exercício 24.2>>
 
 
 == Exercício 2.2
@@ -1144,3 +1151,219 @@ out.write(result);
 cv::imshow("filtroespacial21x21", result);
 ----
 O código teve pouca alteração o que mudou foi apenas máscaras ``mask2 = cv::Mat(11,11, CV_32F, media11);`` e sua entrada no filtro``cv::filter2D(frame32f, frameFiltered, frame32f.depth(), mask3, cv::Point(1, 1), cv::BORDER_REPLICATE);``.
+
+== Exercício 21.2
+
+O programa pede para contar o número de ponto para contornar a imagem retangulos.png. e depois mudar a variável ``cv::CHAIN_APPROX_NONE`` para ``cv::CHAIN_APPROX_SIMPLE`` e dizer o que aconteceu.
+
+.código contorno.cpp
+[source,cpp]
+----
+#include <fstream>
+#include <iostream>
+#include <opencv2/opencv.hpp>
+
+int main(int argc, char** argv) {
+    cv::Mat image, gray;
+    std::ofstream file;
+
+
+   // image = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
+    image = cv::imread("retangulos.png", cv::IMREAD_GRAYSCALE);
+    if (!image.data) {
+        std::cout << "nao abriu " << argv[1] << std::endl;
+        return 0;
+    }
+
+    cv::threshold(image, image, 1, 255, cv::THRESH_BINARY + cv::THRESH_OTSU);
+
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+
+    cv::findContours(image, contours, hierarchy, cv::RETR_EXTERNAL,
+        cv::CHAIN_APPROX_SIMPLE);
+
+    cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
+
+    file.open("contornos.svg");
+    if (!file.is_open()) {
+        std::cout << "nao abriu contornos.svg" << std::endl;
+        return 0;
+    }
+
+    file << "<svg height=\"" << image.rows << "\" width=\"" << image.cols
+        << "\" xmlns=\"http://www.w3.org/2000/svg\"> " << std::endl;
+    int contador = 0;
+    for (size_t i = 0; i < contours.size(); i++) {
+        file << "<path d=\"M " << contours[i][0].x << " " << contours[i][0].y
+            << " ";
+        for (size_t j = 1; j < contours[i].size(); j++) {
+            file << "L" << contours[i][j].x << " " << contours[i][j].y << " ";
+            contador = contador + 1;
+        }
+        file << "Z\" fill=\"#cccccc\" stroke=\"black\" stroke-width=\"1\" />"
+            << std::endl;
+        cv::drawContours(image, contours, i, CV_RGB(255, 0, 0));
+        
+    }
+    file << "</svg>" << std::endl;
+    std::cout << "pontos: " << contador << std::endl;
+    cv::imshow("imagem", image);
+    cv::waitKey();
+
+    return 0;
+----
+A resultados do programa utilizado o método  ``cv::CHAIN_APPROX_NONE `` e  ``cv::CHAIN_APPROX_SIMPLE``deu diferente em que o primeiro apresentou 745 pontos para realizar o contorno e o segundo deu apenas 9 pontos. Além disso, foi feito o desenho do contorno da  imagem dos dois. 
+
+
+.Imagem de saída utilizando ``cv::CHAIN_APPROX_NONE``.
+image::contorno2.png[teste,200,100,float="center",align="center"]
+
+.Imagem de saída utilizando ``cv::CHAIN_APPROX_SIMPLE``.
+image::contorno1.png[teste,200,100,float="center",align="center"]
+
+Analisando o resultado podemos perceber que ``cv::CHAIN_APPROX_NONE `` gera mais pontos que o ``cv::CHAIN_APPROX_SIMPLE`` isso porque o método none pega vários pontos de uma mesma linha que deixa  muita redundância que faz com que o arquivo fique muito mais pesado para armazenar já o método simple pega apenas as vértice da figura. Além disso, vendo a imagem gerada não há diferença.
+
+
+=== 21.2.1 Descrição do programa contorno.cpp
+.código contorno.cpp
+[source,cpp]
+----
+
+    cv::findContours(image, contours, hierarchy, cv::RETR_EXTERNAL,
+    cv::CHAIN_APPROX_NONE);
+
+----
+Basicamente em relação ao código original foi mudado essa parte do código variado o ``cv::CHAIN_APPROX_NONE`` e ``cv::CHAIN_APPROX_SIMPLE``.
+
+[source,cpp]
+----
+    int contador = 0;
+for (size_t i = 0; i < contours.size(); i++) {
+    file << "<path d=\"M " << contours[i][0].x << " " << contours[i][0].y
+        << " ";
+    for (size_t j = 1; j < contours[i].size(); j++) {
+        file << "L" << contours[i][j].x << " " << contours[i][j].y << " ";
+        contador = contador + 1;
+    }
+    file << "Z\" fill=\"#cccccc\" stroke=\"black\" stroke-width=\"1\" />"
+        << std::endl;
+    cv::drawContours(image, contours, i, CV_RGB(255, 0, 0));
+    
+}
+file << "</svg>" << std::endl;
+std::cout << "20 appears " << contador << " times.\n";
+----
+Nessa parte só foi adicionado um contador para adquirir o número de pontos de contorno.
+
+== Exercício 24.2
+
+A atividade a seguir foi pedido para resolver o problema dos números digitais em seguimento,  em que o afastamento das linhas dos números dificultam a identificação, nesse caso foi usado um filtro morfológico. 
+
+
+
+.código morfologia.cpp
+[source,cpp]
+----
+#include <iostream>
+#include <opencv2/opencv.hpp>
+
+int main(int argc, char** argv) {
+    cv::Mat image, erosao, dilatacao, abertura, fechamento, abertfecha;
+    cv::Mat str;
+
+    if (argc != 2) {
+        std::cout << "morfologia entrada saida\n";
+    }
+
+    image = cv::imread("digitos-5.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat image2 = 255 - image;
+    //cv::imshow("teste",img2);
+
+
+    //  image = cv::imread(argv[1], -1);
+
+    if (image.empty()) {
+        std::cout << "Erro ao carregar a imagem: " << argv[1] << std::endl;
+        return -1;
+    }
+
+    // elemento estruturante
+    str = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 10));
+    // erosao
+    cv::erode(image2, erosao, str);
+    // dilatacao
+    cv::dilate(image2, dilatacao, str);
+    // abertura
+    cv::morphologyEx(image2, abertura, cv::MORPH_OPEN, str);
+    // fechamento
+    cv::morphologyEx(image2, fechamento, cv::MORPH_CLOSE, str);
+    // abertura -> fechamento
+    cv::morphologyEx(abertura, abertfecha, cv::MORPH_CLOSE, str);
+
+    fechamento = 255 - fechamento;
+
+    cv::Mat matArray[] = { erosao, dilatacao, abertura, fechamento, abertfecha };
+    cv::hconcat(matArray, 5, image);
+
+    cv::imshow("morfologia", image);
+
+    cv::waitKey();
+    return 0;
+}
+----
+Os resultados encontrados foram melhores quando o elemento estruturante foi de tamanho 4 de largura e 10 de altura com a operação de fechamento. As figuras abaixo mostram o resultado disso na ordem de  erosão, dilatação, abertura, fechamento, abertfecha.
+
+.Imagem de saída utilizando erosão, dilatação, abertura, fechamento, abertfecha, em vermelho circulado o melhor resultado.
+image::d1.png[teste,300,200,float="center",align="center"]
+
+.Imagem de saída utilizando erosão, dilatação, abertura, fechamento, abertfecha, em vermelho circulado o melhor resultado.
+image::d2.png[teste,300,200,float="center",align="center"]
+
+.Imagem de saída utilizando erosão, dilatação, abertura, fechamento, abertfecha, em vermelho circulado o melhor resultado.
+image::d3.png[teste,300,200,float="center",align="center"]
+
+.Imagem de saída utilizando erosão, dilatação, abertura, fechamento, abertfecha, em vermelho circulado o melhor resultado.
+image::d4.png[teste,300,200,float="center",align="center"]
+
+.Imagem de saída utilizando erosão, dilatação, abertura, fechamento, abertfecha, em vermelho circulado o melhor resultado.
+image::d5.png[teste,300,200,float="center",align="center"]
+
+
+
+=== 24.2.1 Descrição do programa morfologia.cpp
+.código morfologia.cpp
+[source,cpp]
+----
+
+    cv::Mat image2 = 255 - image;
+//cv::imshow("teste",img2);
+
+
+//  image = cv::imread(argv[1], -1);
+
+if (image.empty()) {
+    std::cout << "Erro ao carregar a imagem: " << argv[1] << std::endl;
+    return -1;
+}
+
+// elemento estruturante
+str = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 10));
+// erosao
+cv::erode(image2, erosao, str);
+// dilatacao
+cv::dilate(image2, dilatacao, str);
+// abertura
+cv::morphologyEx(image2, abertura, cv::MORPH_OPEN, str);
+// fechamento
+cv::morphologyEx(image2, fechamento, cv::MORPH_CLOSE, str);
+// abertura -> fechamento
+cv::morphologyEx(abertura, abertfecha, cv::MORPH_CLOSE, str);
+
+fechamento = 255 - fechamento;
+
+----
+Poucas mudanças foram necessárias basicamente foi invertida a coloração da imagem ``cv::Mat image2 = 255 - image;`` pois o filtro funciona analisando as cores brancas nas imagem e também foi colocando no elemento estruturante os 4 de largura e 10 de altura em    ``str = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 10)); 
+``  e por fim foi investido novamente a coloração da imagem  nesse caso só foi investido a imagem com o fechamento pois ela  foi que melhor apresentou resultado satisfatórios 
+
+
